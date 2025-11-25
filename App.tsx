@@ -56,7 +56,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen pb-12">
+    <div className="min-h-screen flex flex-col">
       <ProfileModal 
         isOpen={isProfileModalOpen} 
         onClose={() => setIsProfileModalOpen(false)} 
@@ -90,7 +90,7 @@ const App: React.FC = () => {
       </header>
 
       {/* Main Content */}
-      <main className="pt-8">
+      <main className="flex-grow pt-8 pb-12">
         {error && (
           <div className="max-w-2xl mx-auto mb-6 p-4 bg-red-50 border border-red-100 text-red-600 rounded-xl flex items-center justify-between shadow-sm">
              <span className="flex-1">{error}</span>
@@ -119,6 +119,18 @@ const App: React.FC = () => {
           <ItineraryView itinerary={itinerary} onReset={handleReset} />
         )}
       </main>
+
+      {/* Footer Signature */}
+      <footer className="py-8 text-center bg-gradient-to-t from-slate-50 to-white border-t border-slate-100 mt-auto">
+        <div className="flex flex-col items-center justify-center opacity-80 hover:opacity-100 transition-opacity duration-500">
+          <p className="text-slate-400 text-xs tracking-widest uppercase mb-1 font-medium">Crafted with Precision by</p>
+          <div className="relative">
+            <h2 className="text-3xl text-slate-800" style={{ fontFamily: '"Dancing Script", cursive' }}>
+              Cafer Ahmet Koç
+            </h2>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 };
