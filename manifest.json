@@ -1,0 +1,16 @@
+{
+  "short_name": "RotaMimar",
+  "name": "RotaMimar: Akıllı Seyahat Asistanı",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/201/201623.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#10b981",
+  "background_color": "#ffffff",
+  "orientation": "portrait"
+}
