@@ -1,7 +1,34 @@
 import { GoogleGenAI, HarmCategory, HarmBlockThreshold } from "@google/genai";
 import { UserPreferences, TripItinerary, UserProfile } from "../types";
 
-// Helper to clean Markdown code blocks if the model adds them
+// --- Helper Functions ---
+
+// Safely retrieve API Key from various environment configurations
+const getApiKey = (): string | undefined => {
+  // 1. Try Vite / Modern Browsers (import.meta.env)
+  try {
+    // @ts-ignore
+    if (typeof import.meta !== 'undefined' && import.meta.env) {
+      // @ts-ignore
+      const val = import.meta.env.VITE_API_KEY || import.meta.env.API_KEY;
+      if (val) return val;
+    }
+  } catch (e) { /* ignore */ }
+
+  // 2. Try Node/Webpack/Next.js/CRA (process.env)
+  try {
+    if (typeof process !== 'undefined' && process.env) {
+      return process.env.API_KEY || 
+             process.env.REACT_APP_API_KEY || 
+             process.env.NEXT_PUBLIC_API_KEY || 
+             process.env.VITE_API_KEY;
+    }
+  } catch (e) { /* ignore */ }
+
+  return undefined;
+};
+
+// Robust JSON parser for AI responses
 const cleanAndParseJSON = (text: string) => {
     try {
         // Remove markdown code blocks
@@ -23,11 +50,26 @@ const cleanAndParseJSON = (text: string) => {
     }
 }
 
+// Browser-compatible UUID generator
+const generateUUID = () => {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  // Fallback for older browsers or non-secure contexts
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+};
+
+// --- Main Service ---
+
 export const generateItinerary = async (prefs: UserPreferences, userProfile?: UserProfile | null): Promise<TripItinerary> => {
-  // 1. API Key Check
-  const apiKey = process.env.API_KEY;
+  // 1. API Key Check with robust getter
+  const apiKey = getApiKey();
+  
   if (!apiKey) {
-    throw new Error("API Anahtarı bulunamadı. Lütfen Vercel ayarlarında 'API_KEY' değişkenini tanımlayın.");
+    throw new Error("API Anahtarı bulunamadı. Lütfen Vercel ayarlarında 'API_KEY', 'VITE_API_KEY' veya 'REACT_APP_API_KEY' değişkenlerinden birini tanımlayın.");
   }
 
   const ai = new GoogleGenAI({ apiKey: apiKey });
@@ -111,7 +153,7 @@ export const generateItinerary = async (prefs: UserPreferences, userProfile?: Us
     
     // Add Client-Side Metadata
     const itinerary = data as TripItinerary;
-    itinerary.id = crypto.randomUUID();
+    itinerary.id = generateUUID();
     itinerary.createdAt = Date.now();
     
     return itinerary;
