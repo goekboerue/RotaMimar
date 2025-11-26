@@ -53,6 +53,8 @@ export interface DayPlan {
 }
 
 export interface TripItinerary {
+  id: string;        // Unique ID for saving
+  createdAt: number; // Timestamp
   tripName: string;
   summary: string;
   days: DayPlan[];

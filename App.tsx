@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import InputWizard from './components/InputWizard';
 import ItineraryView from './components/ItineraryView';
 import ProfileModal from './components/ProfileModal';
+import SavedTripsModal from './components/SavedTripsModal';
 import { UserPreferences, TripItinerary, UserProfile } from './types';
 import { generateItinerary } from './services/geminiService';
-import { Compass, UserCircle } from 'lucide-react';
+import { Compass, UserCircle, FolderOpen } from 'lucide-react';
 
 const App: React.FC = () => {
   const [prefs, setPrefs] = useState<UserPreferences | null>(null);
@@ -16,7 +17,11 @@ const App: React.FC = () => {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
-  // Load profile from local storage on mount
+  // Saved Trips State
+  const [savedTrips, setSavedTrips] = useState<TripItinerary[]>([]);
+  const [isSavedTripsModalOpen, setIsSavedTripsModalOpen] = useState(false);
+
+  // Load profile and saved trips from local storage on mount
   useEffect(() => {
     const savedProfile = localStorage.getItem('rotaMimar_profile');
     if (savedProfile) {
@@ -24,6 +29,15 @@ const App: React.FC = () => {
         setUserProfile(JSON.parse(savedProfile));
       } catch (e) {
         console.error("Failed to parse profile", e);
+      }
+    }
+
+    const savedTripsData = localStorage.getItem('rotaMimar_savedTrips');
+    if (savedTripsData) {
+      try {
+        setSavedTrips(JSON.parse(savedTripsData));
+      } catch (e) {
+        console.error("Failed to parse saved trips", e);
       }
     }
   }, []);
@@ -55,6 +69,39 @@ const App: React.FC = () => {
     setError(null);
   };
 
+  // --- Saved Trips Logic ---
+
+  const handleSaveTrip = (tripToSave: TripItinerary) => {
+    // Check if already saved
+    if (savedTrips.some(t => t.id === tripToSave.id)) return;
+
+    const newSavedTrips = [tripToSave, ...savedTrips];
+    setSavedTrips(newSavedTrips);
+    localStorage.setItem('rotaMimar_savedTrips', JSON.stringify(newSavedTrips));
+  };
+
+  const handleDeleteTrip = (id: string) => {
+    const newSavedTrips = savedTrips.filter(t => t.id !== id);
+    setSavedTrips(newSavedTrips);
+    localStorage.setItem('rotaMimar_savedTrips', JSON.stringify(newSavedTrips));
+  };
+
+  const handleLoadTrip = (trip: TripItinerary) => {
+    setItinerary(trip);
+    // Reconstruct simplified prefs for UI consistency if needed, 
+    // but for now displaying the itinerary is enough
+    setPrefs({
+        city: "Kayıtlı Rota",
+        days: trip.days.length,
+        pace: userProfile?.defaultPace || "Dengeli" as any,
+        interests: [],
+        budget: "Bilinmiyor",
+        companion: "Solo" as any
+    });
+  };
+
+  const isCurrentTripSaved = itinerary ? savedTrips.some(t => t.id === itinerary.id) : false;
+
   return (
     <div className="min-h-screen flex flex-col">
       <ProfileModal 
@@ -62,6 +109,14 @@ const App: React.FC = () => {
         onClose={() => setIsProfileModalOpen(false)} 
         currentProfile={userProfile}
         onSave={handleSaveProfile}
+      />
+
+      <SavedTripsModal
+        isOpen={isSavedTripsModalOpen}
+        onClose={() => setIsSavedTripsModalOpen(false)}
+        savedTrips={savedTrips}
+        onLoadTrip={handleLoadTrip}
+        onDeleteTrip={handleDeleteTrip}
       />
 
       {/* Header */}
@@ -74,17 +129,27 @@ const App: React.FC = () => {
             <span className="text-xl font-bold text-slate-900 tracking-tight">Rota<span className="text-emerald-600">Mimar</span></span>
           </div>
           
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4">
+            <button
+               onClick={() => setIsSavedTripsModalOpen(true)}
+               className="flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-indigo-600 transition-colors bg-slate-50 px-3 py-1.5 rounded-lg border border-transparent hover:border-indigo-100"
+            >
+               <FolderOpen size={18} />
+               <span className="hidden sm:inline">Kayıtlı Rotalar</span>
+               {savedTrips.length > 0 && (
+                 <span className="bg-indigo-600 text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full">
+                   {savedTrips.length}
+                 </span>
+               )}
+            </button>
+
             <button 
               onClick={() => setIsProfileModalOpen(true)}
               className="flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-emerald-600 transition-colors"
             >
               <UserCircle size={20} />
-              {userProfile ? userProfile.name : 'Profil Oluştur'}
+              <span className="hidden sm:inline">{userProfile ? userProfile.name : 'Profil'}</span>
             </button>
-            {!itinerary && (
-               <div className="hidden sm:block text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded">BETA v1.2</div>
-            )}
           </div>
         </div>
       </header>
@@ -116,7 +181,12 @@ const App: React.FC = () => {
             />
           </div>
         ) : (
-          <ItineraryView itinerary={itinerary} onReset={handleReset} />
+          <ItineraryView 
+            itinerary={itinerary} 
+            onReset={handleReset} 
+            onSave={handleSaveTrip}
+            isSaved={isCurrentTripSaved}
+          />
         )}
       </main>
 

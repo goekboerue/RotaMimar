@@ -1,15 +1,24 @@
-import { GoogleGenAI, Type, Schema } from "@google/genai";
+import { GoogleGenAI } from "@google/genai";
 import { UserPreferences, TripItinerary, UserProfile } from "../types";
 
-const parseJSON = (text: string) => {
+// Helper to clean Markdown code blocks if the model adds them
+const cleanAndParseJSON = (text: string) => {
     try {
-        const start = text.indexOf('{');
-        const end = text.lastIndexOf('}');
-        if (start === -1 || end === -1) return null;
-        const jsonStr = text.substring(start, end + 1);
-        return JSON.parse(jsonStr);
+        // Remove ```json and ``` wrapping if present
+        let cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
+        
+        // Find the first '{' and last '}' to extract just the JSON object
+        const start = cleanText.indexOf('{');
+        const end = cleanText.lastIndexOf('}');
+        
+        if (start === -1 || end === -1) {
+            throw new Error("Valid JSON object not found in response");
+        }
+        
+        cleanText = cleanText.substring(start, end + 1);
+        return JSON.parse(cleanText);
     } catch (e) {
-        console.error("JSON Parse Error", e);
+        console.error("JSON Parse Error. Raw Text:", text, e);
         return null;
     }
 }
@@ -17,65 +26,10 @@ const parseJSON = (text: string) => {
 export const generateItinerary = async (prefs: UserPreferences, userProfile?: UserProfile | null): Promise<TripItinerary> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-  const activitySchema: Schema = {
-    type: Type.OBJECT,
-    properties: {
-      id: { type: Type.STRING },
-      name: { type: Type.STRING },
-      time: { type: Type.STRING },
-      type: { type: Type.STRING, enum: ['sightseeing', 'food', 'rest', 'work', 'activity'] },
-      description: { type: Type.STRING },
-      isHiddenGem: { type: Type.BOOLEAN },
-      rainAlternative: { type: Type.STRING },
-      estimatedCost: { type: Type.STRING },
-      coordinates: {
-        type: Type.OBJECT,
-        properties: {
-          x: { type: Type.NUMBER, description: "Relative X coordinate 0-100" },
-          y: { type: Type.NUMBER, description: "Relative Y coordinate 0-100" }
-        }
-      },
-      openingHours: { type: Type.STRING, description: "Typical opening hours e.g., '09:00 - 18:00'" },
-      crowdLevel: { type: Type.STRING, enum: ['Low', 'Moderate', 'High', 'Very High'], description: "Estimated crowd level at this time" },
-      specialEvent: { type: Type.STRING, description: "Any fictional or real special event happening (e.g., 'Jazz Night')" }
-    },
-    required: ["id", "name", "time", "type", "description", "isHiddenGem", "estimatedCost", "coordinates", "crowdLevel"]
-  };
-
-  const dayPlanSchema: Schema = {
-    type: Type.OBJECT,
-    properties: {
-      dayNumber: { type: Type.INTEGER },
-      theme: { type: Type.STRING },
-      morning: { type: Type.ARRAY, items: activitySchema },
-      afternoon: { type: Type.ARRAY, items: activitySchema },
-      evening: { type: Type.ARRAY, items: activitySchema }
-    }
-  };
-
-  const itinerarySchema: Schema = {
-    type: Type.OBJECT,
-    properties: {
-      tripName: { type: Type.STRING },
-      summary: { type: Type.STRING },
-      days: { type: Type.ARRAY, items: dayPlanSchema },
-      stats: {
-        type: Type.OBJECT,
-        properties: {
-          cultureScore: { type: Type.NUMBER },
-          natureScore: { type: Type.NUMBER },
-          foodScore: { type: Type.NUMBER },
-          relaxationScore: { type: Type.NUMBER }
-        }
-      }
-    },
-    required: ["tripName", "summary", "days", "stats"]
-  };
-
   let profileContext = "";
   if (userProfile) {
     profileContext = `
-      Kullanıcı Profili Bağlamı:
+      Kullanıcı Profili Bağlamı (BU BİLGİLERİ KULLAN):
       - Kullanıcı Adı: ${userProfile.name}
       - Biyografi/Geçmiş: ${userProfile.bio}
       - Genel İlgi Alanları: ${userProfile.savedInterests.join(', ')}
@@ -96,15 +50,53 @@ export const generateItinerary = async (prefs: UserPreferences, userProfile?: Us
 
     ${profileContext}
 
-    Lütfen bu kriterlere uygun, *mantıksal* ve *detaylı* bir JSON rota oluştur.
+    GÖREV:
+    Bu kriterlere uygun, *mantıksal* ve *detaylı* bir seyahat planı oluştur.
     
     Önemli Kurallar:
     1. Mekanları birbirine yakınlıklarına göre sırala (Lojistik optimizasyon).
-    2. 'crowdLevel' alanında o saatteki tahmini doluluğu belirt.
+    2. 'crowdLevel' alanında o saatteki tahmini doluluğu belirt (Low, Moderate, High, Very High).
     3. 'openingHours' ile mekanın çalışma saatlerini belirt.
     4. Varsa o dönem için hayali veya gerçek bir 'specialEvent' (Özel Etkinlik) ekle.
-    5. Koordinatları (x, y) 0 ile 100 arasında soyut bir harita düzlemi için ver.
-    6. SADECE JSON formatında yanıt ver, markdown kullanma.
+    5. Koordinatları (x, y) 0 ile 100 arasında soyut bir harita düzlemi için ver (Haritada çizim için gerekli).
+    6. "type" alanı şunlardan biri olmalı: 'sightseeing', 'food', 'rest', 'work', 'activity'.
+
+    AŞAĞIDAKİ JSON FORMATINDA YANIT VER (Sadece JSON döndür):
+
+    {
+      "tripName": "Yaratıcı bir tur ismi",
+      "summary": "Turun kısa ve çekici bir özeti",
+      "stats": {
+        "cultureScore": 0-100 arası sayı,
+        "natureScore": 0-100 arası sayı,
+        "foodScore": 0-100 arası sayı,
+        "relaxationScore": 0-100 arası sayı
+      },
+      "days": [
+        {
+          "dayNumber": 1,
+          "theme": "Günün teması",
+          "morning": [
+            {
+              "id": "unique_id_1",
+              "name": "Mekan İsmi",
+              "time": "09:00",
+              "type": "sightseeing",
+              "description": "Kısa açıklama",
+              "isHiddenGem": false,
+              "rainAlternative": "Yağmur yağarsa gidilecek kapalı alternatif",
+              "estimatedCost": "10€",
+              "openingHours": "09:00 - 18:00",
+              "crowdLevel": "Moderate",
+              "specialEvent": "İsteğe bağlı etkinlik",
+              "coordinates": { "x": 20, "y": 30 }
+            }
+          ],
+          "afternoon": [ ... aynı yapı ... ],
+          "evening": [ ... aynı yapı ... ]
+        }
+      ]
+    }
   `;
 
   try {
@@ -113,7 +105,6 @@ export const generateItinerary = async (prefs: UserPreferences, userProfile?: Us
       contents: prompt,
       config: {
         responseMimeType: "application/json",
-        responseSchema: itinerarySchema,
         temperature: 0.4,
       },
     });
@@ -121,9 +112,15 @@ export const generateItinerary = async (prefs: UserPreferences, userProfile?: Us
     const text = response.text;
     if (!text) throw new Error("API'den boş yanıt döndü.");
 
-    const data = parseJSON(text);
-    if (!data) throw new Error("AI yanıtı okunamadı (JSON ayrıştırma hatası).");
-    return data as TripItinerary;
+    const data = cleanAndParseJSON(text);
+    if (!data) throw new Error("AI yanıtı okunamadı (JSON format hatası).");
+    
+    // Add Client-Side Metadata
+    const itinerary = data as TripItinerary;
+    itinerary.id = crypto.randomUUID();
+    itinerary.createdAt = Date.now();
+    
+    return itinerary;
 
   } catch (error) {
     console.error("Gemini API Error:", error);

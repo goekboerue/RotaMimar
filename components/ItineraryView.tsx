@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { TripItinerary, Activity } from '../types';
-import { Clock, MapPin, Sparkles, CloudRain, Navigation, Star, Leaf, Utensils, Coffee, Users, CalendarCheck } from 'lucide-react';
+import { Clock, Navigation, Sparkles, CloudRain, Users, CalendarCheck, Share2, Check, Bookmark, BookmarkCheck, Coffee, Utensils, Star } from 'lucide-react';
 import { ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
 import SchematicMap from './SchematicMap';
 
 interface ItineraryViewProps {
   itinerary: TripItinerary;
   onReset: () => void;
+  onSave: (itinerary: TripItinerary) => void;
+  isSaved: boolean;
 }
 
 interface ActivityCardProps {
@@ -112,9 +114,10 @@ const ActivityCard: React.FC<ActivityCardProps> = ({ item, isRaining, onToggleRa
   );
 };
 
-const ItineraryView: React.FC<ItineraryViewProps> = ({ itinerary, onReset }) => {
+const ItineraryView: React.FC<ItineraryViewProps> = ({ itinerary, onReset, onSave, isSaved }) => {
   const [selectedDay, setSelectedDay] = useState(1);
   const [showRainPlan, setShowRainPlan] = useState<Record<string, boolean>>({});
+  const [isCopied, setIsCopied] = useState(false);
 
   const currentDayPlan = itinerary.days.find(d => d.dayNumber === selectedDay);
 
@@ -123,6 +126,31 @@ const ItineraryView: React.FC<ItineraryViewProps> = ({ itinerary, onReset }) => 
       ...prev,
       [activityId]: !prev[activityId]
     }));
+  };
+
+  const handleShare = async () => {
+    const url = window.location.origin;
+    const shareText = `🌍 RotaMimar ile harika bir seyahat planı oluşturdum: "${itinerary.tripName}"\n\n📝 Özet: ${itinerary.summary}\n\n🚀 Sen de kendi kişisel seyahat asistanınla hayalindeki tatili tasarla: ${url}`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'RotaMimar Seyahat Planım',
+          text: shareText,
+          url: url,
+        });
+      } catch (err) {
+        console.log('Share canceled', err);
+      }
+    } else {
+      try {
+        await navigator.clipboard.writeText(shareText);
+        setIsCopied(true);
+        setTimeout(() => setIsCopied(false), 2000);
+      } catch (err) {
+        console.error('Failed to copy', err);
+      }
+    }
   };
 
   const statsData = [
@@ -136,16 +164,42 @@ const ItineraryView: React.FC<ItineraryViewProps> = ({ itinerary, onReset }) => 
     <div className="max-w-6xl mx-auto px-4 py-8 animate-fadeIn">
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-end mb-8 gap-4">
-        <div>
-          <button onClick={onReset} className="text-sm text-slate-500 hover:text-emerald-600 mb-2">← Yeni Plan</button>
-          <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">{itinerary.tripName}</h1>
-          <p className="text-slate-600 mt-2 max-w-2xl">{itinerary.summary}</p>
-        </div>
-        <div className="flex gap-2">
-            <div className="bg-white px-4 py-2 rounded-lg shadow-sm border border-slate-100">
-                <span className="block text-xs text-slate-400 uppercase">Toplam Gün</span>
-                <span className="font-bold text-slate-800 text-lg">{itinerary.days.length}</span>
+        <div className="flex-1">
+          <button onClick={onReset} className="text-sm text-slate-500 hover:text-emerald-600 mb-2 transition-colors">← Yeni Plan</button>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+            <h1 className="text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight">{itinerary.tripName}</h1>
+            <div className="flex items-center gap-2">
+              <div className="bg-white px-3 py-1 rounded-lg shadow-sm border border-slate-100">
+                  <span className="font-bold text-slate-800">{itinerary.days.length} Gün</span>
+              </div>
+              
+              <button 
+                onClick={() => onSave(itinerary)}
+                disabled={isSaved}
+                className={`flex items-center gap-2 px-3 py-1 rounded-lg text-sm font-medium border transition-all ${
+                  isSaved
+                    ? 'bg-indigo-50 border-indigo-200 text-indigo-700 cursor-default'
+                    : 'bg-white border-slate-200 text-slate-600 hover:border-indigo-300 hover:text-indigo-700 hover:shadow-md'
+                }`}
+              >
+                {isSaved ? <BookmarkCheck size={16} /> : <Bookmark size={16} />}
+                {isSaved ? 'Kaydedildi' : 'Kaydet'}
+              </button>
+
+              <button 
+                onClick={handleShare}
+                className={`flex items-center gap-2 px-3 py-1 rounded-lg text-sm font-medium border transition-all ${
+                  isCopied 
+                    ? 'bg-emerald-50 border-emerald-200 text-emerald-700' 
+                    : 'bg-white border-slate-200 text-slate-600 hover:border-emerald-300 hover:text-emerald-700'
+                }`}
+              >
+                {isCopied ? <Check size={16} /> : <Share2 size={16} />}
+                {isCopied ? 'Kopyalandı!' : 'Paylaş'}
+              </button>
             </div>
+          </div>
+          <p className="text-slate-600 mt-2 max-w-2xl text-lg">{itinerary.summary}</p>
         </div>
       </div>
 
