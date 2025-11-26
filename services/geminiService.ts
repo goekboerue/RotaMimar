@@ -1,10 +1,10 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, HarmCategory, HarmBlockThreshold } from "@google/genai";
 import { UserPreferences, TripItinerary, UserProfile } from "../types";
 
 // Helper to clean Markdown code blocks if the model adds them
 const cleanAndParseJSON = (text: string) => {
     try {
-        // Remove ```json and ``` wrapping if present
+        // Remove markdown code blocks
         let cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
         
         // Find the first '{' and last '}' to extract just the JSON object
@@ -24,23 +24,27 @@ const cleanAndParseJSON = (text: string) => {
 }
 
 export const generateItinerary = async (prefs: UserPreferences, userProfile?: UserProfile | null): Promise<TripItinerary> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  // 1. API Key Check
+  const apiKey = process.env.API_KEY;
+  if (!apiKey) {
+    throw new Error("API Anahtarı bulunamadı. Lütfen Vercel ayarlarında 'API_KEY' değişkenini tanımlayın.");
+  }
+
+  const ai = new GoogleGenAI({ apiKey: apiKey });
 
   let profileContext = "";
   if (userProfile) {
     profileContext = `
-      Kullanıcı Profili Bağlamı (BU BİLGİLERİ KULLAN):
-      - Kullanıcı Adı: ${userProfile.name}
-      - Biyografi/Geçmiş: ${userProfile.bio}
-      - Genel İlgi Alanları: ${userProfile.savedInterests.join(', ')}
-      Lütfen bu kişisel detayları rotaya yansıt ve açıklamalarda kişiye özel ton kullan.
+      Kullanıcı Profili Bağlamı:
+      - Ad: ${userProfile.name}
+      - İlgi Alanları: ${userProfile.savedInterests.join(', ')}
+      - Biyografi: ${userProfile.bio}
+      Lütfen bu kişisel detayları rotaya yansıt.
     `;
   }
 
   const prompt = `
-    Sen RotaMimar (RouteArchitect) adında dünyaca ünlü bir seyahat planlayıcısısın.
-    Kullanıcı şu özelliklerde bir seyahat planı istiyor:
-    
+    Kullanıcı Tercihleri:
     Şehir: ${prefs.city}
     Süre: ${prefs.days} Gün
     Tempo: ${prefs.pace}
@@ -50,50 +54,32 @@ export const generateItinerary = async (prefs: UserPreferences, userProfile?: Us
 
     ${profileContext}
 
-    GÖREV:
-    Bu kriterlere uygun, *mantıksal* ve *detaylı* bir seyahat planı oluştur.
+    Lütfen yukarıdaki kriterlere uygun, JSON formatında bir seyahat rotası oluştur.
+  `;
+
+  // System instructions define the persona and output format strictly
+  const systemInstruction = `
+    Sen RotaMimar, dünyaca ünlü bir seyahat planlayıcısısın. Görevin verilen kriterlere göre MÜKEMMEL JSON formatında yanıt üretmektir.
+    Başka hiçbir metin veya açıklama yazma. Sadece JSON.
+
+    Kurallar:
+    1. Mekanları lojistik sıraya göre diz.
+    2. 'crowdLevel' (Low, Moderate, High, Very High) tahmin et.
+    3. 'coordinates' (x, y) 0-100 arasında ver.
+    4. "type" şunlardan biri olmalı: 'sightseeing', 'food', 'rest', 'work', 'activity'.
     
-    Önemli Kurallar:
-    1. Mekanları birbirine yakınlıklarına göre sırala (Lojistik optimizasyon).
-    2. 'crowdLevel' alanında o saatteki tahmini doluluğu belirt (Low, Moderate, High, Very High).
-    3. 'openingHours' ile mekanın çalışma saatlerini belirt.
-    4. Varsa o dönem için hayali veya gerçek bir 'specialEvent' (Özel Etkinlik) ekle.
-    5. Koordinatları (x, y) 0 ile 100 arasında soyut bir harita düzlemi için ver (Haritada çizim için gerekli).
-    6. "type" alanı şunlardan biri olmalı: 'sightseeing', 'food', 'rest', 'work', 'activity'.
-
-    AŞAĞIDAKİ JSON FORMATINDA YANIT VER (Sadece JSON döndür):
-
+    Beklenen JSON Şeması:
     {
-      "tripName": "Yaratıcı bir tur ismi",
-      "summary": "Turun kısa ve çekici bir özeti",
-      "stats": {
-        "cultureScore": 0-100 arası sayı,
-        "natureScore": 0-100 arası sayı,
-        "foodScore": 0-100 arası sayı,
-        "relaxationScore": 0-100 arası sayı
-      },
+      "tripName": "Tur İsmi",
+      "summary": "Özet",
+      "stats": { "cultureScore": 0-100, "natureScore": 0-100, "foodScore": 0-100, "relaxationScore": 0-100 },
       "days": [
         {
           "dayNumber": 1,
-          "theme": "Günün teması",
-          "morning": [
-            {
-              "id": "unique_id_1",
-              "name": "Mekan İsmi",
-              "time": "09:00",
-              "type": "sightseeing",
-              "description": "Kısa açıklama",
-              "isHiddenGem": false,
-              "rainAlternative": "Yağmur yağarsa gidilecek kapalı alternatif",
-              "estimatedCost": "10€",
-              "openingHours": "09:00 - 18:00",
-              "crowdLevel": "Moderate",
-              "specialEvent": "İsteğe bağlı etkinlik",
-              "coordinates": { "x": 20, "y": 30 }
-            }
-          ],
-          "afternoon": [ ... aynı yapı ... ],
-          "evening": [ ... aynı yapı ... ]
+          "theme": "Tema",
+          "morning": [ { "id": "uuid", "name": "Ad", "time": "09:00", "type": "sightseeing", "description": "Kısa açıklama", "isHiddenGem": boolean, "rainAlternative": "Alt plan", "estimatedCost": "€", "openingHours": "09:00-18:00", "crowdLevel": "Low", "coordinates": {"x": 10, "y": 10} } ],
+          "afternoon": [],
+          "evening": []
         }
       ]
     }
@@ -104,8 +90,16 @@ export const generateItinerary = async (prefs: UserPreferences, userProfile?: Us
       model: 'gemini-2.5-flash',
       contents: prompt,
       config: {
+        systemInstruction: systemInstruction,
         responseMimeType: "application/json",
         temperature: 0.4,
+        // Disable strict safety filters for travel content (e.g. nightlife, history wars)
+        safetySettings: [
+          { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+          { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+          { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+          { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+        ]
       },
     });
 
@@ -113,7 +107,7 @@ export const generateItinerary = async (prefs: UserPreferences, userProfile?: Us
     if (!text) throw new Error("API'den boş yanıt döndü.");
 
     const data = cleanAndParseJSON(text);
-    if (!data) throw new Error("AI yanıtı okunamadı (JSON format hatası).");
+    if (!data) throw new Error("AI yanıtı JSON formatında değil.");
     
     // Add Client-Side Metadata
     const itinerary = data as TripItinerary;
@@ -122,8 +116,9 @@ export const generateItinerary = async (prefs: UserPreferences, userProfile?: Us
     
     return itinerary;
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("Gemini API Error:", error);
-    throw error;
+    // Return a more user-friendly error message if available
+    throw new Error(error.message || "Rota oluşturulurken bilinmeyen bir hata oluştu.");
   }
 };

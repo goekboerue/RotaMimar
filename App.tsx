@@ -55,8 +55,9 @@ const App: React.FC = () => {
       // Pass userProfile to the generator for personalized results
       const result = await generateItinerary(preferences, userProfile);
       setItinerary(result);
-    } catch (err) {
-      setError("Üzgünüz, rota oluşturulurken bir hata oluştu. Sunucu yoğun olabilir, lütfen tekrar deneyin.");
+    } catch (err: any) {
+      // Use the specific error message from the service
+      setError(err.message || "Üzgünüz, rota oluşturulurken bir hata oluştu. Sunucu yoğun olabilir, lütfen tekrar deneyin.");
       console.error(err);
     } finally {
       setLoading(false);
@@ -157,9 +158,9 @@ const App: React.FC = () => {
       {/* Main Content */}
       <main className="flex-grow pt-8 pb-12">
         {error && (
-          <div className="max-w-2xl mx-auto mb-6 p-4 bg-red-50 border border-red-100 text-red-600 rounded-xl flex items-center justify-between shadow-sm">
-             <span className="flex-1">{error}</span>
-             <button onClick={() => setError(null)} className="ml-4 text-sm font-bold underline">Kapat</button>
+          <div className="max-w-3xl mx-auto mb-6 p-4 bg-red-50 border border-red-100 text-red-700 rounded-xl flex items-center justify-between shadow-sm">
+             <span className="flex-1 font-medium">{error}</span>
+             <button onClick={() => setError(null)} className="ml-4 text-sm font-bold underline shrink-0">Kapat</button>
           </div>
         )}
 
