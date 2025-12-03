@@ -1,4 +1,4 @@
-import { Pace, Companion } from './types';
+import { Pace, Companion, TimeSlot } from './types';
 import { Coffee, Camera, Landmark, Palette, TreePine, ShoppingBag, Utensils, Music, Briefcase } from 'lucide-react';
 
 export const INTERESTS = [
@@ -27,3 +27,9 @@ export const COMPANION_OPTIONS = [
 ];
 
 export const BUDGET_OPTIONS = ['Bütçe Dostu', 'Orta Seviye', 'Lüks'];
+
+export const TIME_SLOT_OPTIONS: { value: TimeSlot; label: string }[] = [
+  { value: 'morning', label: 'Sabah' },
+  { value: 'afternoon', label: 'Öğle' },
+  { value: 'evening', label: 'Akşam' },
+];

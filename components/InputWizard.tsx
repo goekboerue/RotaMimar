@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { UserPreferences, Pace, Companion, UserProfile } from '../types';
-import { INTERESTS, PACE_OPTIONS, COMPANION_OPTIONS, BUDGET_OPTIONS } from '../constants';
-import { MapPin, Calendar, Wallet, Check, ChevronRight, Loader2, Sparkles } from 'lucide-react';
+import { UserPreferences, Pace, Companion, UserProfile, TimeSlot } from '../types';
+import { INTERESTS, PACE_OPTIONS, COMPANION_OPTIONS, BUDGET_OPTIONS, TIME_SLOT_OPTIONS } from '../constants';
+import { MapPin, Calendar, Wallet, Check, ChevronRight, Loader2, Sparkles, Activity, Plus } from 'lucide-react';
 
 interface InputWizardProps {
   onComplete: (prefs: UserPreferences) => void;
@@ -17,8 +17,14 @@ const InputWizard: React.FC<InputWizardProps> = ({ onComplete, isLoading, userPr
     pace: Pace.BALANCED,
     interests: [],
     budget: 'Orta Seviye',
-    companion: Companion.COUPLE
+    companion: Companion.COUPLE,
+    fixedActivity: undefined
   });
+
+  // Local state for the fixed activity input to keep it clean
+  const [showFixedActivityInput, setShowFixedActivityInput] = useState(false);
+  const [fixedActName, setFixedActName] = useState('');
+  const [fixedActTime, setFixedActTime] = useState<TimeSlot>('morning');
 
   // Effect to auto-fill defaults if not yet set by user
   useEffect(() => {
@@ -35,7 +41,6 @@ const InputWizard: React.FC<InputWizardProps> = ({ onComplete, isLoading, userPr
       pace: userProfile.defaultPace,
       budget: userProfile.defaultBudget
     }));
-    // Visual feedback could be added here
   };
 
   const handleInterestToggle = (id: string) => {
@@ -53,7 +58,18 @@ const InputWizard: React.FC<InputWizardProps> = ({ onComplete, isLoading, userPr
   const isStep2Valid = prefs.interests.length > 0;
 
   const handleSubmit = () => {
-    onComplete(prefs);
+    // Merge local fixed activity state into prefs before submitting
+    let finalPrefs = { ...prefs };
+    if (showFixedActivityInput && fixedActName.trim() !== '') {
+      finalPrefs.fixedActivity = {
+        name: fixedActName,
+        timeSlot: fixedActTime
+      };
+    } else {
+        finalPrefs.fixedActivity = undefined;
+    }
+    
+    onComplete(finalPrefs);
   };
 
   if (isLoading) {
@@ -68,7 +84,8 @@ const InputWizard: React.FC<InputWizardProps> = ({ onComplete, isLoading, userPr
         <h3 className="mt-8 text-2xl font-bold text-slate-800">RotaMimar Çalışıyor</h3>
         <p className="text-slate-500 mt-2 max-w-md">
           {userProfile ? `${userProfile.name} için ` : ''} 
-          Yapay zeka asistanımız {prefs.city} rotasını, güncel doluluk oranlarını ve etkinlikleri analiz ederek hazırlıyor...
+          {fixedActName ? `"${fixedActName}" aktivitesi ve ` : ''} 
+          {prefs.city} rotası, doluluk oranları analiz edilerek hazırlanıyor...
         </p>
       </div>
     );
@@ -209,47 +226,104 @@ const InputWizard: React.FC<InputWizardProps> = ({ onComplete, isLoading, userPr
           <div className="space-y-6 animate-fadeIn">
             <h2 className="text-3xl font-bold text-slate-800">Son Dokunuşlar</h2>
             
-            <div>
-              <label className="block text-lg font-medium text-slate-800 mb-3">Seyahat Temposu</label>
-              <div className="space-y-3">
-                {PACE_OPTIONS.map((pace) => (
-                  <button
-                    key={pace.value}
-                    onClick={() => setPrefs({ ...prefs, pace: pace.value })}
-                    className={`w-full flex items-center justify-between p-4 rounded-xl border-2 text-left transition-all ${
-                      prefs.pace === pace.value
-                        ? 'border-emerald-500 bg-emerald-50'
-                        : 'border-slate-100 bg-white hover:border-slate-200'
-                    }`}
-                  >
-                    <div>
-                      <div className={`font-semibold ${prefs.pace === pace.value ? 'text-emerald-900' : 'text-slate-700'}`}>
-                        {pace.label}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-lg font-medium text-slate-800 mb-3">Seyahat Temposu</label>
+                <div className="space-y-2">
+                  {PACE_OPTIONS.map((pace) => (
+                    <button
+                      key={pace.value}
+                      onClick={() => setPrefs({ ...prefs, pace: pace.value })}
+                      className={`w-full flex items-center justify-between p-3 rounded-xl border-2 text-left transition-all ${
+                        prefs.pace === pace.value
+                          ? 'border-emerald-500 bg-emerald-50'
+                          : 'border-slate-100 bg-white hover:border-slate-200'
+                      }`}
+                    >
+                      <div>
+                        <div className={`font-semibold text-sm ${prefs.pace === pace.value ? 'text-emerald-900' : 'text-slate-700'}`}>
+                          {pace.label}
+                        </div>
+                        <div className="text-xs text-slate-500">{pace.desc}</div>
                       </div>
-                      <div className="text-sm text-slate-500">{pace.desc}</div>
-                    </div>
-                    {prefs.pace === pace.value && <Check className="text-emerald-600" />}
-                  </button>
-                ))}
+                      {prefs.pace === pace.value && <Check size={16} className="text-emerald-600" />}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
 
-            <div>
-              <label className="block text-lg font-medium text-slate-800 mb-3">Bütçe Tercihi</label>
-              <div className="flex gap-4 p-1 bg-slate-100 rounded-xl">
-                {BUDGET_OPTIONS.map((opt) => (
-                  <button
-                    key={opt}
-                    onClick={() => setPrefs({ ...prefs, budget: opt })}
-                    className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
-                      prefs.budget === opt
-                        ? 'bg-white shadow text-slate-900'
-                        : 'text-slate-500 hover:text-slate-700'
-                    }`}
-                  >
-                    {opt}
-                  </button>
-                ))}
+              <div className="space-y-6">
+                <div>
+                    <label className="block text-lg font-medium text-slate-800 mb-3">Bütçe Tercihi</label>
+                    <div className="flex gap-2 p-1 bg-slate-100 rounded-xl">
+                    {BUDGET_OPTIONS.map((opt) => (
+                        <button
+                        key={opt}
+                        onClick={() => setPrefs({ ...prefs, budget: opt })}
+                        className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
+                            prefs.budget === opt
+                            ? 'bg-white shadow text-slate-900'
+                            : 'text-slate-500 hover:text-slate-700'
+                        }`}
+                        >
+                        {opt}
+                        </button>
+                    ))}
+                    </div>
+                </div>
+
+                {/* Fixed Activity Section */}
+                <div className={`rounded-xl border-2 transition-all overflow-hidden ${showFixedActivityInput ? 'border-indigo-200 bg-indigo-50/50' : 'border-slate-100 bg-white'}`}>
+                    {!showFixedActivityInput ? (
+                        <button 
+                            onClick={() => setShowFixedActivityInput(true)}
+                            className="w-full p-4 flex items-center justify-between text-left hover:bg-slate-50 transition-colors"
+                        >
+                            <div className="flex items-center gap-3">
+                                <div className="bg-indigo-100 text-indigo-600 p-2 rounded-lg">
+                                    <Activity size={20} />
+                                </div>
+                                <div>
+                                    <div className="font-semibold text-slate-800">Özel Bir İsteğin Var mı?</div>
+                                    <div className="text-xs text-slate-500">Örn: Sabah koşusu, Akşam masajı...</div>
+                                </div>
+                            </div>
+                            <Plus size={20} className="text-slate-400" />
+                        </button>
+                    ) : (
+                        <div className="p-4 space-y-3">
+                            <div className="flex justify-between items-center mb-1">
+                                <h4 className="font-bold text-indigo-900 text-sm">Özel Aktivite Planla</h4>
+                                <button onClick={() => setShowFixedActivityInput(false)} className="text-xs text-slate-400 hover:text-red-500">İptal</button>
+                            </div>
+                            <input 
+                                type="text"
+                                value={fixedActName}
+                                onChange={(e) => setFixedActName(e.target.value)}
+                                placeholder="Aktivite adı (Örn: Yoga, Koşu)"
+                                className="w-full px-3 py-2 rounded-lg border border-indigo-200 focus:ring-2 focus:ring-indigo-500 focus:outline-none text-sm"
+                            />
+                            <div className="flex gap-2">
+                                {TIME_SLOT_OPTIONS.map((slot) => (
+                                    <button
+                                        key={slot.value}
+                                        onClick={() => setFixedActTime(slot.value)}
+                                        className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                                            fixedActTime === slot.value
+                                            ? 'bg-indigo-600 text-white shadow-md'
+                                            : 'bg-white border border-indigo-100 text-indigo-600 hover:bg-indigo-50'
+                                        }`}
+                                    >
+                                        {slot.label}
+                                    </button>
+                                ))}
+                            </div>
+                            <p className="text-[10px] text-indigo-400 leading-tight">
+                                *RotaMimar günü bu aktiviteye göre (öncesi/sonrası) optimize eder.
+                            </p>
+                        </div>
+                    )}
+                </div>
               </div>
             </div>
 

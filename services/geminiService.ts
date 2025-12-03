@@ -85,6 +85,17 @@ export const generateItinerary = async (prefs: UserPreferences, userProfile?: Us
     `;
   }
 
+  let fixedActivityContext = "";
+  if (prefs.fixedActivity) {
+      const slotMap = { 'morning': 'Sabah', 'afternoon': 'Öğleden Sonra', 'evening': 'Akşam' };
+      fixedActivityContext = `
+      KRİTİK GÖREV: Kullanıcı özellikle ${slotMap[prefs.fixedActivity.timeSlot]} vaktinde "${prefs.fixedActivity.name}" aktivitesini yapmak istiyor.
+      - Bu aktivite için şehirdeki EN İYİ mekanı/parkuru/yeri seç (Örn: Koşu ise güzel bir parkur, Masaj ise iyi bir spa).
+      - Günün geri kalanını bu aktiviteye göre planla (Örn: Spordan sonra duş/kahvaltı imkanı, Masajdan sonra rahat bir yemek vb.).
+      - Bu aktiviteyi programda mutlaka göster.
+      `;
+  }
+
   const prompt = `
     Kullanıcı Tercihleri:
     Şehir: ${prefs.city}
@@ -95,6 +106,8 @@ export const generateItinerary = async (prefs: UserPreferences, userProfile?: Us
     Bütçe: ${prefs.budget}
 
     ${profileContext}
+
+    ${fixedActivityContext}
 
     Lütfen yukarıdaki kriterlere uygun, JSON formatında bir seyahat rotası oluştur.
   `;

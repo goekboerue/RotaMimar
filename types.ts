@@ -12,6 +12,13 @@ export enum Companion {
   FRIENDS = 'Arkadaşlar'
 }
 
+export type TimeSlot = 'morning' | 'afternoon' | 'evening';
+
+export interface FixedActivity {
+  name: string;
+  timeSlot: TimeSlot;
+}
+
 export interface UserPreferences {
   city: string;
   days: number;
@@ -19,6 +26,7 @@ export interface UserPreferences {
   interests: string[];
   budget: string;
   companion: Companion;
+  fixedActivity?: FixedActivity; // New optional field
 }
 
 export interface UserProfile {
