@@ -15,9 +15,10 @@ interface ActivityCardProps {
   item: Activity;
   isRaining: boolean;
   onToggleRainPlan: (id: string) => void;
+  cityName: string;
 }
 
-const ActivityCard: React.FC<ActivityCardProps> = ({ item, isRaining, onToggleRainPlan }) => {
+const ActivityCard: React.FC<ActivityCardProps> = ({ item, isRaining, onToggleRainPlan, cityName }) => {
   const getCrowdColor = (level?: string) => {
     switch(level) {
       case 'Low': return 'bg-green-100 text-green-700';
@@ -37,6 +38,11 @@ const ActivityCard: React.FC<ActivityCardProps> = ({ item, isRaining, onToggleRa
       default: return 'Bilinmiyor';
     }
   };
+
+  // Construct a location-specific query (e.g., "Starbucks, Istanbul")
+  const mapQuery = cityName 
+    ? encodeURIComponent(`${item.name}, ${cityName}`) 
+    : encodeURIComponent(item.name);
 
   return (
     <div className="relative pl-8 pb-8 border-l-2 border-slate-200 last:border-0 group">
@@ -99,9 +105,8 @@ const ActivityCard: React.FC<ActivityCardProps> = ({ item, isRaining, onToggleRa
                 </button>
               )}
            </div>
-           {/* Note: In a real app, this would open Google Maps */}
            <a 
-             href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.name)}`}
+             href={`https://www.google.com/maps/search/?api=1&query=${mapQuery}`}
              target="_blank" 
              rel="noreferrer"
              className="text-emerald-600 hover:text-emerald-700 text-xs font-bold flex items-center gap-1"
@@ -244,7 +249,8 @@ const ItineraryView: React.FC<ItineraryViewProps> = ({ itinerary, onReset, onSav
                    key={i} 
                    item={act} 
                    isRaining={!!showRainPlan[act.id]} 
-                   onToggleRainPlan={toggleRainPlan} 
+                   onToggleRainPlan={toggleRainPlan}
+                   cityName={itinerary.destinationCity || ''}
                  />
                ))}
                
@@ -256,7 +262,8 @@ const ItineraryView: React.FC<ItineraryViewProps> = ({ itinerary, onReset, onSav
                    key={i} 
                    item={act} 
                    isRaining={!!showRainPlan[act.id]} 
-                   onToggleRainPlan={toggleRainPlan} 
+                   onToggleRainPlan={toggleRainPlan}
+                   cityName={itinerary.destinationCity || ''}
                  />
                ))}
 
@@ -268,7 +275,8 @@ const ItineraryView: React.FC<ItineraryViewProps> = ({ itinerary, onReset, onSav
                    key={i} 
                    item={act} 
                    isRaining={!!showRainPlan[act.id]} 
-                   onToggleRainPlan={toggleRainPlan} 
+                   onToggleRainPlan={toggleRainPlan}
+                   cityName={itinerary.destinationCity || ''}
                  />
                ))}
             </div>

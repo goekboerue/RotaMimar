@@ -168,6 +168,7 @@ export const generateItinerary = async (prefs: UserPreferences, userProfile?: Us
     const itinerary = data as TripItinerary;
     itinerary.id = generateUUID();
     itinerary.createdAt = Date.now();
+    itinerary.destinationCity = prefs.city; // Store the city for map context
     
     return itinerary;
 
